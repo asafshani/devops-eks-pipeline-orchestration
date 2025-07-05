@@ -5,8 +5,8 @@ pipeline {
     choice(
       name: 'action',
       choices: [
-        'terraform validate',
         'terraform init',
+        'terraform validate',
         'terraform plan',
         'terraform apply',
         'terraform destroy'
