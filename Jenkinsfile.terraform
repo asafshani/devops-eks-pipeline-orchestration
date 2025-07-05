@@ -32,9 +32,10 @@ pipeline {
         withCredentials([usernamePassword(credentialsId: 'c6ba5-8604-4d45-afd2-e653e0bbe9ad', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
           dir("${env.TF_WORKDIR}") {
             sh '''
+              set -e
               export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
               export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-              terraform init
+              terraform init -input=false -no-color
             '''
           }
         }
@@ -47,9 +48,10 @@ pipeline {
         withCredentials([usernamePassword(credentialsId: 'c6ba5-8604-4d45-afd2-e653e0bbe9ad', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
           dir("${env.TF_WORKDIR}") {
             sh '''
+              set -e
               export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
               export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-              terraform validate
+              terraform validate -no-color
             '''
           }
         }
@@ -62,9 +64,10 @@ pipeline {
         withCredentials([usernamePassword(credentialsId: 'c6ba5-8604-4d45-afd2-e653e0bbe9ad', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
           dir("${env.TF_WORKDIR}") {
             sh """
+              set -e
               export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
               export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-              terraform plan -out=tfplan \\
+              terraform plan -no-color -out=tfplan \\
                 -var="aws_region=${params.AWS_REGION}" \\
                 -var="availability_zone=${params.AVAILABILITY_ZONE}" \\
                 -var="vpc_cidr=${params.VPC_CIDR}" \\
@@ -85,9 +88,10 @@ pipeline {
         withCredentials([usernamePassword(credentialsId: 'c6ba5-8604-4d45-afd2-e653e0bbe9ad', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
           dir("${env.TF_WORKDIR}") {
             sh '''
+              set -e
               export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
               export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-              terraform apply -auto-approve tfplan
+              terraform apply -no-color -auto-approve tfplan
             '''
           }
         }
@@ -100,9 +104,10 @@ pipeline {
         withCredentials([usernamePassword(credentialsId: 'c6ba5-8604-4d45-afd2-e653e0bbe9ad', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
           dir("${env.TF_WORKDIR}") {
             sh '''
+              set -e
               export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
               export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-              terraform destroy -auto-approve
+              terraform destroy -no-color -auto-approve
             '''
           }
         }
