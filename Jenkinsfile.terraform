@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   parameters {
-    choice(name: 'ACTION', choices: ['plan', 'apply', 'destroy'], description: 'What to do with the infrastructure')
+    choice(name: 'ACTION', choices: ['init', 'validate', 'plan', 'apply', 'destroy'], description: 'Terraform action to perform')
     choice(name: 'AWS_REGION', choices: ['us-east-1', 'us-west-2', 'eu-central-1'], description: 'AWS Region')
     choice(name: 'AVAILABILITY_ZONE', choices: ['us-east-1a', 'us-west-2a', 'eu-central-1a'], description: 'Availability Zone')
     string(name: 'VPC_CIDR', defaultValue: '10.0.0.0/16', description: 'VPC CIDR Block')
@@ -19,74 +19,56 @@ pipeline {
 
   stages {
     stage('Terraform Init') {
+      when { expression { params.ACTION == 'init' } }
       steps {
-        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-          dir("${env.TF_WORKDIR}") {
-            sh 'terraform init'
-          }
+        dir("${env.TF_WORKDIR}") {
+          sh 'terraform init'
         }
       }
     }
 
     stage('Terraform Validate') {
+      when { expression { params.ACTION == 'validate' } }
       steps {
-        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-          dir("${env.TF_WORKDIR}") {
-            sh 'terraform validate'
-          }
+        dir("${env.TF_WORKDIR}") {
+          sh 'terraform validate'
         }
       }
     }
 
     stage('Terraform Plan') {
+      when { expression { params.ACTION == 'plan' } }
       steps {
-        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-          dir("${env.TF_WORKDIR}") {
-            sh """
-              terraform plan -out=tfplan \\
-                -var="aws_region=${params.AWS_REGION}" \\
-                -var="availability_zone=${params.AVAILABILITY_ZONE}" \\
-                -var="vpc_cidr=${params.VPC_CIDR}" \\
-                -var="public_subnet_cidr=${params.PUBLIC_SUBNET_CIDR}" \\
-                -var="private_subnet_cidr=${params.PRIVATE_SUBNET_CIDR}" \\
-                -var="cluster_name=${params.CLUSTER_NAME}" \\
-                -var="kubernetes_version=${params.KUBERNETES_VERSION}" \\
-                -var="environment=${params.ENVIRONMENT}"
-            """
-          }
+        dir("${env.TF_WORKDIR}") {
+          sh """
+            terraform plan -out=tfplan \\
+              -var="aws_region=${params.AWS_REGION}" \\
+              -var="availability_zone=${params.AVAILABILITY_ZONE}" \\
+              -var="vpc_cidr=${params.VPC_CIDR}" \\
+              -var="public_subnet_cidr=${params.PUBLIC_SUBNET_CIDR}" \\
+              -var="private_subnet_cidr=${params.PRIVATE_SUBNET_CIDR}" \\
+              -var="cluster_name=${params.CLUSTER_NAME}" \\
+              -var="kubernetes_version=${params.KUBERNETES_VERSION}" \\
+              -var="environment=${params.ENVIRONMENT}"
+          """
         }
       }
     }
 
     stage('Terraform Apply') {
-      when {
-        expression { return params.ACTION == 'apply' }
-      }
+      when { expression { params.ACTION == 'apply' } }
       steps {
-        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-          dir("${env.TF_WORKDIR}") {
-            sh 'terraform apply -auto-approve tfplan'
-          }
+        dir("${env.TF_WORKDIR}") {
+          sh 'terraform apply -auto-approve tfplan'
         }
       }
     }
 
     stage('Terraform Destroy') {
-      when {
-        expression { return params.ACTION == 'destroy' }
-      }
+      when { expression { params.ACTION == 'destroy' } }
       steps {
-        script {
-          try {
-            input message: "Confirm destroy of infrastructure in ${params.ENVIRONMENT}?"
-            dir("${env.TF_WORKDIR}") {
-              sh 'terraform destroy -auto-approve'
-            }
-          } catch (e) {
-            echo "Destroy stage aborted or failed: ${e.getMessage()}"
-            currentBuild.result = 'ABORTED'
-            error("Terraform destroy interrupted.")
-          }
+        dir("${env.TF_WORKDIR}") {
+          sh 'terraform destroy -auto-approve'
         }
       }
     }
@@ -94,13 +76,13 @@ pipeline {
 
   post {
     failure {
-      echo "Pipeline FAILED. Check logs for details."
+      echo "Pipeline failed during ${params.ACTION} stage."
     }
     success {
-      echo "Pipeline completed: ${params.ACTION.toUpperCase()} finished successfully in ${params.ENVIRONMENT}."
+      echo "Pipeline successfully completed the ${params.ACTION} stage."
     }
     aborted {
-      echo "Pipeline was manually aborted."
+      echo "Pipeline was aborted by user during ${params.ACTION}."
     }
   }
 }
