@@ -4,18 +4,25 @@ pipeline {
   parameters {
     choice(
       name: 'action',
-      choices: ['terraform init', 'terraform plan', 'terraform apply', 'terraform destroy'],
+      choices: [
+        'terraform validate',
+        'terraform init',
+        'terraform plan',
+        'terraform apply',
+        'terraform destroy'
+      ],
       description: '''Select the Terraform action to perform:
 
-- terraform init: Initializes the Terraform working directory. Downloads providers and sets up backend.
-- terraform plan: Creates an execution plan, showing what Terraform will do without making changes.
-- terraform apply: Applies changes to your infrastructure as defined by your .tf files.
-- terraform destroy: Destroys all resources managed by Terraform in the current config. Use with caution!'''
+- terraform validate: Checks whether your configuration is syntactically valid and internally consistent.
+- terraform init: Initializes the working directory, downloads providers, and configures the backend.
+- terraform plan: Generates an execution plan showing proposed infrastructure changes.
+- terraform apply: Applies the proposed changes to AWS infrastructure.
+- terraform destroy: Destroys all infrastructure managed by Terraform in this configuration.'''
     )
   }
 
   stages {
-    stage('Inject AWS Credentials') {
+    stage('Run Terraform Action') {
       steps {
         withCredentials([
           usernamePassword(
@@ -24,13 +31,18 @@ pipeline {
             passwordVariable: 'AWS_SECRET_ACCESS_KEY'
           )
         ]) {
+          // Debug identity for confirmation
           sh 'aws sts get-caller-identity'
+
+          // Checkout Terraform repo
           git branch: 'main',
               url: 'https://github.com/asafshani/terraform-aws-networking.git'
 
-          // Conditional logic for selected action
+          // Execute based on user-selected action
           script {
-            if (params.action == 'terraform init') {
+            if (params.action == 'terraform validate') {
+              sh 'terraform validate'
+            } else if (params.action == 'terraform init') {
               sh 'terraform init'
             } else if (params.action == 'terraform plan') {
               sh 'terraform init'
@@ -52,7 +64,8 @@ pipeline {
   post {
     success {
       echo "Terraform '${params.action}' completed successfully."
-      // Optional: Trigger Ansible job only on apply
+
+      // Trigger Ansible pipeline only if apply was selected
       script {
         if (params.action == 'terraform apply') {
           build job: 'ansible-pipeline'
@@ -61,7 +74,7 @@ pipeline {
     }
 
     failure {
-      echo "Terraform '${params.action}' failed. Check console output for details."
+      echo "Terraform '${params.action}' failed. Check logs for details."
     }
 
     always {
