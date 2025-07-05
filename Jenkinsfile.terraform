@@ -2,83 +2,57 @@ pipeline {
   agent any
 
   parameters {
-    choice(
-      name: 'action',
-      choices: [
-        'terraform init',
-        'terraform validate',
-        'terraform plan',
-        'terraform apply',
-        'terraform destroy'
-      ],
-      description: '''Select the Terraform action to perform:
+    choice(name: 'AWS_REGION', choices: ['us-east-1', 'us-west-2', 'eu-central-1'], description: 'AWS region')
+    choice(name: 'AVAILABILITY_ZONE', choices: ['us-east-1a', 'us-west-2a', 'eu-central-1a'], description: 'Availability Zone')
+    string(name: 'VPC_CIDR', defaultValue: '10.0.0.0/16', description: 'CIDR block for the VPC')
+    string(name: 'PUBLIC_SUBNET_CIDR', defaultValue: '10.0.1.0/24', description: 'CIDR for the public subnet')
+    string(name: 'PRIVATE_SUBNET_CIDR', defaultValue: '10.0.2.0/24', description: 'CIDR for the private subnet')
+    string(name: 'CLUSTER_NAME', defaultValue: 'my-eks-cluster', description: 'EKS Cluster Name')
+    choice(name: 'KUBERNETES_VERSION', choices: ['1.26', '1.27', '1.28'], description: 'Kubernetes version')
+    choice(name: 'ENVIRONMENT', choices: ['dev', 'staging', 'prod'], description: 'Deployment environment')
+  }
 
-- terraform validate: Checks whether your configuration is syntactically valid and internally consistent.
-- terraform init: Initializes the working directory, downloads providers, and configures the backend.
-- terraform plan: Generates an execution plan showing proposed infrastructure changes.
-- terraform apply: Applies the proposed changes to AWS infrastructure.
-- terraform destroy: Destroys all infrastructure managed by Terraform in this configuration.'''
-    )
+  environment {
+    TF_WORKDIR = 'terraform' // adjust this if your Terraform config is in a subfolder
   }
 
   stages {
-    stage('Run Terraform Action') {
+    stage('Terraform Init') {
       steps {
-        withCredentials([
-          usernamePassword(
-            credentialsId: '5ccc6ba5-8604-4d45-afd2-e653e0bbe9ad',
-            usernameVariable: 'AWS_ACCESS_KEY_ID',
-            passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-          )
-        ]) {
-          // Debug identity for confirmation
-          sh 'aws sts get-caller-identity'
-
-          // Checkout Terraform repo
-          git branch: 'main',
-              url: 'https://github.com/asafshani/terraform-aws-networking.git'
-
-          // Execute based on user-selected action
-          script {
-            if (params.action == 'terraform validate') {
-              sh 'terraform validate'
-            } else if (params.action == 'terraform init') {
-              sh 'terraform init'
-            } else if (params.action == 'terraform plan') {
-              sh 'terraform init'
-              sh 'terraform plan -out=tfplan'
-            } else if (params.action == 'terraform apply') {
-              sh 'terraform init'
-              sh 'terraform plan -out=tfplan'
-              sh 'terraform apply -auto-approve tfplan'
-            } else if (params.action == 'terraform destroy') {
-              sh 'terraform init'
-              sh 'terraform destroy -auto-approve'
-            }
-          }
-        }
-      }
-    }
-  }
-
-  post {
-    success {
-      echo "Terraform '${params.action}' completed successfully."
-
-      // Trigger Ansible pipeline only if apply was selected
-      script {
-        if (params.action == 'terraform apply') {
-          build job: 'ansible-pipeline'
+        dir("${env.TF_WORKDIR}") {
+          sh 'terraform init'
         }
       }
     }
 
-    failure {
-      echo "Terraform '${params.action}' failed. Check logs for details."
+    stage('Terraform Plan') {
+      steps {
+        dir("${env.TF_WORKDIR}") {
+          sh """
+            terraform plan -out=tfplan \\
+              -var="aws_region=${params.AWS_REGION}" \\
+              -var="availability_zone=${params.AVAILABILITY_ZONE}" \\
+              -var="vpc_cidr=${params.VPC_CIDR}" \\
+              -var="public_subnet_cidr=${params.PUBLIC_SUBNET_CIDR}" \\
+              -var="private_subnet_cidr=${params.PRIVATE_SUBNET_CIDR}" \\
+              -var="cluster_name=${params.CLUSTER_NAME}" \\
+              -var="kubernetes_version=${params.KUBERNETES_VERSION}" \\
+              -var="environment=${params.ENVIRONMENT}"
+          """
+        }
+      }
     }
 
-    always {
-      echo 'Terraform pipeline finished.'
+    stage('Terraform Apply (Optional)') {
+      when {
+        expression { return params.ENVIRONMENT != 'dev' }
+      }
+      steps {
+        input message: "Are you sure you want to apply this plan to ${params.ENVIRONMENT}?"
+        dir("${env.TF_WORKDIR}") {
+          sh 'terraform apply tfplan'
+        }
+      }
     }
   }
 }
