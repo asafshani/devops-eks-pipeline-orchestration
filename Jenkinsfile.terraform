@@ -1,35 +1,29 @@
 pipeline {
   agent any
 
-  environment {
-    TF_VAR_aws_region = 'il-central-1'
-    AWS_ACCESS_KEY_ID     = credentials('5ccc6ba5-8604-4d45-afd2-e653e0bbe9ad')
-    AWS_SECRET_ACCESS_KEY = credentials('5ccc6ba5-8604-4d45-afd2-e653e0bbe9ad')
-  }
-
   stages {
-    stage('Clone Terraform Repo') {
+    stage('Inject AWS Credentials') {
       steps {
-        git branch: 'main',
-            url: 'https://github.com/asafshani/terraform-aws-networking.git'
-      }
-    }
+        withCredentials([
+          usernamePassword(
+            credentialsId: '5ccc6ba5-8604-4d45-afd2-e653e0bbe9ad',
+            usernameVariable: 'AWS_ACCESS_KEY_ID',
+            passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+          )
+        ]) {
 
-    stage('Terraform Init') {
-      steps {
-        sh 'terraform init'
-      }
-    }
+          // Optional debug step to confirm credential injection
+          sh 'aws sts get-caller-identity'
 
-    stage('Terraform Plan') {
-      steps {
-        sh 'terraform plan -out=tfplan'
-      }
-    }
+          // Clone the Terraform repo
+          git branch: 'main',
+              url: 'https://github.com/asafshani/terraform-aws-networking.git'
 
-    stage('Terraform Apply') {
-      steps {
-        sh 'terraform apply -auto-approve tfplan'
+          // Terraform stages
+          sh 'terraform init'
+          sh 'terraform plan -out=tfplan'
+          sh 'terraform apply -auto-approve tfplan'
+        }
       }
     }
   }
