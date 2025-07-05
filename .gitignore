@@ -1,0 +1,23 @@
+# Jenkins artifacts
+*.log
+*.tmp
+*.bak
+
+# Ansible cache and retry files
+*.retry
+
+# Terraform leftovers
+.terraform/
+terraform.tfstate
+terraform.tfstate.*
+*.tfplan
+*.tfvars.backup
+
+# SSH keys and sensitive files
+*.pem
+*.key
+
+# IDE and editor settings
+.vscode/
+.idea/
+.DS_Store

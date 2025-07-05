@@ -1,0 +1,47 @@
+pipeline {
+  agent any
+  environment {
+    TF_VAR_aws_region = 'il-central-1'
+  }
+
+  stages {
+    stage('Clone Terraform Repo') {
+      steps {
+        git 'https://github.com/asafshani/terraform-aws-networking.git'
+      }
+    }
+
+    stage('Terraform Init') {
+      steps {
+        sh 'terraform init'
+      }
+    }
+
+    stage('Terraform Plan') {
+      steps {
+        sh 'terraform plan -out=tfplan'
+      }
+    }
+
+    stage('Terraform Apply') {
+      steps {
+        sh 'terraform apply -auto-approve tfplan'
+      }
+    }
+  }
+
+  post {
+    success {
+      echo 'Terraform applied successfully. Triggering Ansible pipeline...'
+      build job: 'ansible-pipeline'
+    }
+
+    failure {
+      echo 'Terraform pipeline failed. Investigate logs before triggering Ansible.'
+    }
+
+    always {
+      echo 'Terraform pipeline completed.'
+    }
+  }
+}

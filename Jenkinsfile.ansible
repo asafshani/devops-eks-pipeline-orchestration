@@ -1,0 +1,31 @@
+pipeline {
+  agent any
+
+  stages {
+    stage('Clone Ansible Repo') {
+      steps {
+        git 'https://github.com/asafshani/ansible-eks-configuration.git'
+      }
+    }
+
+    stage('Run Playbook') {
+      steps {
+        sh 'ansible-playbook -i inventory/hosts.ini playbooks/bootstrap.yml'
+      }
+    }
+  }
+
+  post {
+    success {
+      echo 'Ansible configuration applied successfully.'
+    }
+
+    failure {
+      echo 'Ansible pipeline failed. Please review playbook execution logs.'
+    }
+
+    always {
+      echo 'Ansible pipeline completed.'
+    }
+  }
+}
