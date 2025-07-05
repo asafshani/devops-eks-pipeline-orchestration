@@ -14,7 +14,7 @@ pipeline {
   }
 
   environment {
-    TF_WORKDIR = 'terraform'
+    TF_WORKDIR = '.'
   }
 
   stages {
