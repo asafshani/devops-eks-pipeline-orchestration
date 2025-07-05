@@ -1,7 +1,10 @@
 pipeline {
   agent any
+
   environment {
     TF_VAR_aws_region = 'il-central-1'
+    AWS_ACCESS_KEY_ID     = credentials('5ccc6ba5-8604-4d45-afd2-e653e0bbe9ad')
+    AWS_SECRET_ACCESS_KEY = credentials('5ccc6ba5-8604-4d45-afd2-e653e0bbe9ad')
   }
 
   stages {
