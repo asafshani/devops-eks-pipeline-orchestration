@@ -2,8 +2,8 @@ pipeline {
   agent any
 
   parameters {
-    choice(name: 'AWS_REGION', choices: ['us-east-1', 'us-west-2', 'eu-central-1'], description: 'AWS region')
-    choice(name: 'AVAILABILITY_ZONE', choices: ['us-east-1a', 'us-west-2a', 'eu-central-1a'], description: 'Availability Zone')
+    choice(name: 'AWS_REGION', choices: ['il-central-1', 'us-west-2', 'eu-central-1'], description: 'AWS region')
+    choice(name: 'AVAILABILITY_ZONE', choices: ['il-central-1a', 'il-central-1b', 'il-central-1c'], description: 'Availability Zone')
     string(name: 'VPC_CIDR', defaultValue: '10.0.0.0/16', description: 'CIDR block for the VPC')
     string(name: 'PUBLIC_SUBNET_CIDR', defaultValue: '10.0.1.0/24', description: 'CIDR for the public subnet')
     string(name: 'PRIVATE_SUBNET_CIDR', defaultValue: '10.0.2.0/24', description: 'CIDR for the private subnet')
