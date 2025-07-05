@@ -15,8 +15,6 @@ pipeline {
 
   environment {
     TF_WORKDIR = 'terraform-config'
-    AWS_ACCESS_KEY_ID     = credentials('c6ba5-8604-4d45-afd2-e653e0bbe9ad').username
-    AWS_SECRET_ACCESS_KEY = credentials('c6ba5-8604-4d45-afd2-e653e0bbe9ad').password
   }
 
   stages {
@@ -31,8 +29,14 @@ pipeline {
     stage('Terraform Init') {
       when { expression { params.ACTION == 'init' } }
       steps {
-        dir("${env.TF_WORKDIR}") {
-          sh 'terraform init'
+        withCredentials([usernamePassword(credentialsId: 'c6ba5-8604-4d45-afd2-e653e0bbe9ad', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          dir("${env.TF_WORKDIR}") {
+            sh '''
+              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+              terraform init
+            '''
+          }
         }
       }
     }
@@ -40,8 +44,14 @@ pipeline {
     stage('Terraform Validate') {
       when { expression { params.ACTION == 'validate' } }
       steps {
-        dir("${env.TF_WORKDIR}") {
-          sh 'terraform validate'
+        withCredentials([usernamePassword(credentialsId: 'c6ba5-8604-4d45-afd2-e653e0bbe9ad', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          dir("${env.TF_WORKDIR}") {
+            sh '''
+              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+              terraform validate
+            '''
+          }
         }
       }
     }
@@ -49,18 +59,22 @@ pipeline {
     stage('Terraform Plan') {
       when { expression { params.ACTION == 'plan' } }
       steps {
-        dir("${env.TF_WORKDIR}") {
-          sh """
-            terraform plan -out=tfplan \\
-              -var="aws_region=${params.AWS_REGION}" \\
-              -var="availability_zone=${params.AVAILABILITY_ZONE}" \\
-              -var="vpc_cidr=${params.VPC_CIDR}" \\
-              -var="public_subnet_cidr=${params.PUBLIC_SUBNET_CIDR}" \\
-              -var="private_subnet_cidr=${params.PRIVATE_SUBNET_CIDR}" \\
-              -var="cluster_name=${params.CLUSTER_NAME}" \\
-              -var="kubernetes_version=${params.KUBERNETES_VERSION}" \\
-              -var="environment=${params.ENVIRONMENT}"
-          """
+        withCredentials([usernamePassword(credentialsId: 'c6ba5-8604-4d45-afd2-e653e0bbe9ad', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          dir("${env.TF_WORKDIR}") {
+            sh """
+              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+              terraform plan -out=tfplan \\
+                -var="aws_region=${params.AWS_REGION}" \\
+                -var="availability_zone=${params.AVAILABILITY_ZONE}" \\
+                -var="vpc_cidr=${params.VPC_CIDR}" \\
+                -var="public_subnet_cidr=${params.PUBLIC_SUBNET_CIDR}" \\
+                -var="private_subnet_cidr=${params.PRIVATE_SUBNET_CIDR}" \\
+                -var="cluster_name=${params.CLUSTER_NAME}" \\
+                -var="kubernetes_version=${params.KUBERNETES_VERSION}" \\
+                -var="environment=${params.ENVIRONMENT}"
+            """
+          }
         }
       }
     }
@@ -68,8 +82,14 @@ pipeline {
     stage('Terraform Apply') {
       when { expression { params.ACTION == 'apply' } }
       steps {
-        dir("${env.TF_WORKDIR}") {
-          sh 'terraform apply -auto-approve tfplan'
+        withCredentials([usernamePassword(credentialsId: 'c6ba5-8604-4d45-afd2-e653e0bbe9ad', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          dir("${env.TF_WORKDIR}") {
+            sh '''
+              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+              terraform apply -auto-approve tfplan
+            '''
+          }
         }
       }
     }
@@ -77,8 +97,14 @@ pipeline {
     stage('Terraform Destroy') {
       when { expression { params.ACTION == 'destroy' } }
       steps {
-        dir("${env.TF_WORKDIR}") {
-          sh 'terraform destroy -auto-approve'
+        withCredentials([usernamePassword(credentialsId: 'c6ba5-8604-4d45-afd2-e653e0bbe9ad', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          dir("${env.TF_WORKDIR}") {
+            sh '''
+              export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+              export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+              terraform destroy -auto-approve
+            '''
+          }
         }
       }
     }
