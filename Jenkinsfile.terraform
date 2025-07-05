@@ -1,6 +1,19 @@
 pipeline {
   agent any
 
+  parameters {
+    choice(
+      name: 'action',
+      choices: ['terraform init', 'terraform plan', 'terraform apply', 'terraform destroy'],
+      description: '''Select the Terraform action to perform:
+
+- terraform init: Initializes the Terraform working directory. Downloads providers and sets up backend.
+- terraform plan: Creates an execution plan, showing what Terraform will do without making changes.
+- terraform apply: Applies changes to your infrastructure as defined by your .tf files.
+- terraform destroy: Destroys all resources managed by Terraform in the current config. Use with caution!'''
+    )
+  }
+
   stages {
     stage('Inject AWS Credentials') {
       steps {
@@ -11,18 +24,26 @@ pipeline {
             passwordVariable: 'AWS_SECRET_ACCESS_KEY'
           )
         ]) {
-
-          // Optional debug step to confirm credential injection
           sh 'aws sts get-caller-identity'
-
-          // Clone the Terraform repo
           git branch: 'main',
               url: 'https://github.com/asafshani/terraform-aws-networking.git'
 
-          // Terraform stages
-          sh 'terraform init'
-          sh 'terraform plan -out=tfplan'
-          sh 'terraform apply -auto-approve tfplan'
+          // Conditional logic for selected action
+          script {
+            if (params.action == 'terraform init') {
+              sh 'terraform init'
+            } else if (params.action == 'terraform plan') {
+              sh 'terraform init'
+              sh 'terraform plan -out=tfplan'
+            } else if (params.action == 'terraform apply') {
+              sh 'terraform init'
+              sh 'terraform plan -out=tfplan'
+              sh 'terraform apply -auto-approve tfplan'
+            } else if (params.action == 'terraform destroy') {
+              sh 'terraform init'
+              sh 'terraform destroy -auto-approve'
+            }
+          }
         }
       }
     }
@@ -30,16 +51,21 @@ pipeline {
 
   post {
     success {
-      echo 'Terraform applied successfully. Triggering Ansible pipeline...'
-      build job: 'ansible-pipeline'
+      echo "Terraform '${params.action}' completed successfully."
+      // Optional: Trigger Ansible job only on apply
+      script {
+        if (params.action == 'terraform apply') {
+          build job: 'ansible-pipeline'
+        }
+      }
     }
 
     failure {
-      echo 'Terraform pipeline failed. Investigate logs before triggering Ansible.'
+      echo "Terraform '${params.action}' failed. Check console output for details."
     }
 
     always {
-      echo 'Terraform pipeline completed.'
+      echo 'Terraform pipeline finished.'
     }
   }
 }
