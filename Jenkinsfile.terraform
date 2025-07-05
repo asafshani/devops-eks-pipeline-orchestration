@@ -14,10 +14,18 @@ pipeline {
   }
 
   environment {
-    TF_WORKDIR = '.'
+    TF_WORKDIR = 'terraform-config'
   }
 
   stages {
+    stage('Clone Terraform Configuration Repo') {
+      steps {
+        dir("${env.TF_WORKDIR}") {
+          git url: 'https://github.com/asafshani/terraform-aws-networking.git', branch: 'main'
+        }
+      }
+    }
+
     stage('Terraform Init') {
       when { expression { params.ACTION == 'init' } }
       steps {
