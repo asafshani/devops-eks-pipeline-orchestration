@@ -1,6 +1,20 @@
 pipeline {
   agent any
 
+  parameters {
+    string(
+      name: 'EKS_CLUSTER_NAME',
+      defaultValue: 'eks-vpc',
+      description: 'Name of the EKS cluster to configure'
+    )
+  }
+
+  environment {
+    SSH_KEY_PATH = '~/.ssh/eks-key.pem'
+    ANSIBLE_USER = 'ec2-user'
+    AWS_REGION   = 'il-central-1' // Update if your region differs
+  }
+
   stages {
     stage('Clone Ansible Repo') {
       steps {
@@ -8,7 +22,39 @@ pipeline {
       }
     }
 
-    stage('Run Playbook') {
+    stage('Generate Dynamic Ansible Inventory') {
+      steps {
+        script {
+          def clusterName = params.EKS_CLUSTER_NAME
+
+          def ipList = sh(
+            script: """
+              aws ec2 describe-instances \
+                --region ${env.AWS_REGION} \
+                --filters "Name=tag:eks:cluster-name,Values=${clusterName}" \
+                          "Name=instance-state-name,Values=running" \
+                          "Name=tag:eks:nodegroup-name,Values=*" \
+                --query 'Reservations[*].Instances[*].PrivateIpAddress' \
+                --output text
+            """,
+            returnStdout: true
+          ).trim().split()
+
+          if (ipList.size() == 0) {
+            error "No EKS worker nodes found for cluster '${clusterName}'."
+          }
+
+          def hostsFile = "[eks_nodes]\n"
+          ipList.each { ip ->
+            hostsFile += "${ip} ansible_user=${env.ANSIBLE_USER} ansible_ssh_private_key_file=${env.SSH_KEY_PATH}\n"
+          }
+
+          writeFile file: 'inventory/hosts.ini', text: hostsFile
+        }
+      }
+    }
+
+    stage('Run Ansible Playbook') {
       steps {
         sh 'ansible-playbook -i inventory/hosts.ini playbooks/bootstrap.yml'
       }
@@ -19,11 +65,9 @@ pipeline {
     success {
       echo 'Ansible configuration applied successfully.'
     }
-
     failure {
       echo 'Ansible pipeline failed. Please review playbook execution logs.'
     }
-
     always {
       echo 'Ansible pipeline completed.'
     }
